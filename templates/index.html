@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pacotes Instalados</title>
+</head>
+<body>
+    <h1>Pacotes Instalados</h1>
+    <ul>
+        {% for package in packages %}
+        <li>{{ package }}</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Controle de Volume</h2>
+    <input type="range" id="volumeSlider" min="0" max="100" value="50" onchange="setVolume(this.value)">
+    
+    <script>
+        function setVolume(volume) {
+            fetch(`/set_volume?level=${volume}`)
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
+
