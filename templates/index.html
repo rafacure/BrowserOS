@@ -4,23 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pacotes Instalados</title>
+    <style>
+        body {
+            display: flex;
+            font-family: Arial, sans-serif;
+        }
+        .menu {
+            width: 200px;
+            background-color: #f8f8f8;
+            padding: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        .menu button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: none;
+            background-color: orange;
+            color: white;
+            text-align: left;
+            cursor: pointer;
+        }
+        .menu button:hover {
+            background-color: #ff6600;
+        }
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+        }
+        .content div {
+            display: none;
+        }
+        .content div.active {
+            display: block;
+        }
+    </style>
 </head>
 <body>
-    <h1>Pacotes Instalados</h1>
-    <ul>
-        {% for package in packages %}
-        <li>{{ package }}</li>
-        {% endfor %}
-    </ul>
-
-    <h2>Controle de Volume</h2>
-    <input type="range" id="volumeSlider" min="0" max="100" value="50" onchange="setVolume(this.value)">
+    <div class="menu">
+        <button onclick="showContent('apps')">Apps</button>
+        <button onclick="showContent('audio')">Audio</button>
+        <button onclick="showContent('network')">Redes</button>
+    </div>
+    <div class="content">
+        <div id="apps">
+            <h1>Apps</h1>
+            <ul id="packageList"></ul>
+        </div>
+        <div id="audio" class="active">
+            <h1>Audio</h1>
+            <input type="range" id="volumeSlider" min="0" max="100" value="50" onchange="setVolume(this.value)">
+        </div>
+        <div id="network">
+            <h1>Redes</h1>
+            <p><strong>IP Local:</strong> <span id="localIP"></span></p>
+            <p><strong>IP da Internet:</strong> <span id="publicIP"></span></p>
+            <p><strong>Servidores DNS:</strong> <span id="dnsServers"></span></p>
+            <p><strong>Gateway:</strong> <span id="gateway"></span></p>
+        </div>
+    </div>
     
     <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            fetchPackages();
+            fetchNetworkInfo();
+        });
+
+        function showContent(section) {
+            const contents = document.querySelectorAll('.content div');
+            contents.forEach(content => content.classList.remove('active'));
+            document.getElementById(section).classList.add('active');
+        }
+
         function setVolume(volume) {
             fetch(`/set_volume?level=${volume}`)
                 .then(response => response.json())
                 .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        }
+
+        function fetchPackages() {
+            fetch('/get_packages')
+                .then(response => response.json())
+                .then(data => {
+                    const packageList = document.getElementById('packageList');
+                    packageList.innerHTML = '';
+                    data.packages.forEach(pkg => {
+                        const li = document.createElement('li');
+                        li.textContent = pkg;
+                        packageList.appendChild(li);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function fetchNetworkInfo() {
+            fetch('/network_info')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('localIP').textContent = data.localIP;
+                    document.getElementById('publicIP').textContent = data.publicIP;
+                    document.getElementById('dnsServers').textContent = data.dnsServers.join(', ');
+                    document.getElementById('gateway').textContent = data.gateway;
+                })
                 .catch(error => console.error('Error:', error));
         }
     </script>
