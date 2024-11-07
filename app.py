@@ -37,6 +37,28 @@ def get_packages():
     packages = result.stdout.splitlines()
     return jsonify({'packages': packages})
 
+@app.route('/keyboard_layouts')
+def keyboard_layouts():
+    result = subprocess.run(['localectl', 'list-keymaps'], capture_output=True, text=True)
+    layouts = result.stdout.splitlines()
+    return jsonify({'layouts': layouts})
+
+@app.route('/set_keyboard_layout')
+def set_keyboard_layout():
+    layout = request.args.get('layout')
+    cmd = f'localectl set-keymap {layout}'
+    subprocess.run(cmd, shell=True)
+    return jsonify(success=True)
+
+@app.route('/current_keyboard_layout')
+def current_keyboard_layout():
+    result = subprocess.run(['localectl', 'status'], capture_output=True, text=True)
+    for line in result.stdout.splitlines():
+        if 'VC Keymap' in line:
+            current_layout = line.split(':')[1].strip()
+            return jsonify({'layout': current_layout})
+    return jsonify({'layout': 'unknown'})
+
 if __name__ == '__main__':
     app.run(debug=True)
 
