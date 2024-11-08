@@ -19,6 +19,12 @@
             height: 100%;
             overflow-y: auto;
         }
+        .menu h1 {
+            font-size: 16px;
+            color: black;
+            text-align: center;
+            margin-bottom: 15px;
+        }
         .menu button {
             display: block;
             width: 100%;
@@ -37,6 +43,13 @@
             flex-grow: 1;
             padding: 20px;
             margin-left: 220px;
+        }
+        .content h2 {
+            position: sticky;
+            top: 0;
+            background-color: #f8f8f8;
+            padding: 10px 0;
+            margin: 0;
         }
         .content div {
             display: none;
@@ -106,6 +119,7 @@
 </head>
 <body>
     <div class="menu">
+        <h1>Configurações do BrowserOS</h1>
         <button onclick="showContent('apps')">Apps</button>
         <button onclick="showContent('audio')">Audio</button>
         <button onclick="showContent('network')">Redes</button>
@@ -113,22 +127,22 @@
     </div>
     <div class="content">
         <div id="apps">
-            <h1>Apps</h1>
+            <h2>Apps</h2>
             <ul id="packageList"></ul>
         </div>
-        <div id="audio" class="active">
-            <h1>Audio</h1>
-            <input type="range" id="volumeSlider" min="0" max="100" value="50" onchange="setVolume(this.value)">
+        <div id="audio">
+            <h2>Audio</h2>
+            <input type="range" id="volumeSlider" min="0" max="100" value="" onchange="setVolume(this.value)" style="display:none;">
         </div>
         <div id="network">
-            <h1>Redes</h1>
+            <h2>Redes</h2>
             <p><strong>IP Local:</strong> <span id="localIP"></span></p>
             <p><strong>IP da Internet:</strong> <span id="publicIP"></span></p>
             <p><strong>Servidores DNS:</strong> <span id="dnsServers"></span></p>
             <p><strong>Gateway:</strong> <span id="gateway"></span></p>
         </div>
         <div id="keyboard">
-            <h1>Teclado</h1>
+            <h2>Teclado</h2>
             <ul id="layoutList"></ul>
         </div>
     </div>
@@ -142,129 +156,145 @@
             <button class="apply" onclick="applyLayout()">Aplicar</button>
         </div>
     </div>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', (event) => {
-            fetchPackages();
-            fetchNetworkInfo();
-            fetchLayouts();
-            fetchCurrentLayout();
+<script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        fetchPackages();
+        fetchNetworkInfo();
+        fetchLayouts();
+        fetchCurrentLayout();
+        fetchCurrentVolume().then(() => {
+            document.getElementById('volumeSlider').style.display = 'block'; // Exibir o input range após obter o volume
         });
+    });
 
-        function showContent(section) {
-            const contents = document.querySelectorAll('.content div');
-            contents.forEach(content => content.classList.remove('active'));
-            document.getElementById(section).classList.add('active');
+    function showContent(section) {
+        const contents = document.querySelectorAll('.content div');
+        contents.forEach(content => content.classList.remove('active'));
+        document.getElementById(section).classList.add('active');
+        if (section === 'audio') {
+            fetchCurrentVolume();
         }
+    }
 
-        function setVolume(volume) {
-            fetch(`/set_volume?level=${volume}`)
-                .then(response => response.json())
-                .then(data => console.log(data))
-                .catch(error => console.error('Error:', error));
+    function setVolume(volume) {
+        fetch(`/set_volume?level=${volume}`)
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch(error => console.error('Error:', error));
+    }
+
+    function fetchPackages() {
+        fetch('/get_packages')
+            .then(response => response.json())
+            .then(data => {
+                const packageList = document.getElementById('packageList');
+                packageList.innerHTML = '';
+                data.packages.forEach(pkg => {
+                    const li = document.createElement('li');
+                    li.textContent = pkg;
+                    packageList.appendChild(li);
+                });
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function fetchNetworkInfo() {
+        fetch('/network_info')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('localIP').textContent = data.localIP;
+                document.getElementById('publicIP').textContent = data.publicIP;
+                document.getElementById('dnsServers').textContent = data.dnsServers.join(', ');
+                document.getElementById('gateway').textContent = data.gateway;
+            })
+            .catch(error => console.error('Error:', error));
+    }
+    let previousLayout = null;
+    let previousLayoutElement = null;
+
+    function fetchLayouts() {
+        fetch('/keyboard_layouts')
+            .then(response => response.json())
+            .then(data => {
+                const layoutList = document.getElementById('layoutList');
+                layoutList.innerHTML = '';
+                data.layouts.forEach(layout => {
+                    const li = document.createElement('li');
+                    li.textContent = layout;
+                    li.onclick = () => openModal(layout, li);
+                    layoutList.appendChild(li);
+                });
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function setLayout(layout, li) {
+        fetch(`/set_keyboard_layout?layout=${layout}`)
+            .then(response => response.json())
+            .then(data => {
+                document.querySelectorAll('#layoutList li').forEach(item => item.classList.remove('selected'));
+                li.classList.add('selected');
+                console.log(`Layout set to: ${layout}`);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function fetchCurrentLayout() {
+        fetch('/current_keyboard_layout')
+            .then(response => response.json())
+            .then(data => {
+                const currentLayout = data.layout;
+                const layoutListItems = document.querySelectorAll('#layoutList li');
+                layoutListItems.forEach(item => {
+                    if (item.textContent === currentLayout) {
+                        item.classList.add('selected');
+                    }
+                });
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function fetchCurrentVolume() {
+        return fetch('/current_volume')
+            .then(response => response.json())
+            .then(data => {
+                if (data.volume !== 'error') {
+                    document.getElementById('volumeSlider').value = data.volume;
+                } else {
+                    console.error('Error fetching volume:', data.error);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+    function openModal(layout, li) {
+        previousLayout = document.querySelector('#layoutList li.selected')?.textContent;
+        previousLayoutElement = document.querySelector('#layoutList li.selected');
+        setLayout(layout, li);
+        document.getElementById('testInput').value = ''; // Esvaziar o campo de texto
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    function closeModal() {
+        if (previousLayout && previousLayoutElement) {
+            setLayout(previousLayout, previousLayoutElement);
         }
+        document.getElementById('modal').style.display = 'none';
+        document.getElementById('testInput').value = ''; // Esvaziar o campo de texto
+    }
 
-        function fetchPackages() {
-            fetch('/get_packages')
-                .then(response => response.json())
-                .then(data => {
-                    const packageList = document.getElementById('packageList');
-                    packageList.innerHTML = '';
-                    data.packages.forEach(pkg => {
-                        const li = document.createElement('li');
-                        li.textContent = pkg;
-                        packageList.appendChild(li);
-                    });
-                })
-                .catch(error => console.error('Error:', error));
+    function applyLayout() {
+        previousLayout = null;
+        previousLayoutElement = null;
+        document.getElementById('modal').style.display = 'none';
+        document.getElementById('testInput').value = ''; // Esvaziar o campo de texto
+    }
+
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('modal')) {
+            closeModal();
         }
-
-        function fetchNetworkInfo() {
-            fetch('/network_info')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('localIP').textContent = data.localIP;
-                    document.getElementById('publicIP').textContent = data.publicIP;
-                    document.getElementById('dnsServers').textContent = data.dnsServers.join(', ');
-                    document.getElementById('gateway').textContent = data.gateway;
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        let previousLayout = null;
-        let previousLayoutElement = null;
-
-        function fetchLayouts() {
-            fetch('/keyboard_layouts')
-                .then(response => response.json())
-                .then(data => {
-                    const layoutList = document.getElementById('layoutList');
-                    layoutList.innerHTML = '';
-                    data.layouts.forEach(layout => {
-                        const li = document.createElement('li');
-                        li.textContent = layout;
-                        li.onclick = () => openModal(layout, li);
-                        layoutList.appendChild(li);
-                    });
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        function setLayout(layout, li) {
-            fetch(`/set_keyboard_layout?layout=${layout}`)
-                .then(response => response.json())
-                .then(data => {
-                    document.querySelectorAll('#layoutList li').forEach(item => item.classList.remove('selected'));
-                    li.classList.add('selected');
-                    console.log(`Layout set to: ${layout}`);
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        function fetchCurrentLayout() {
-            fetch('/current_keyboard_layout')
-                .then(response => response.json())
-                .then(data => {
-                    const currentLayout = data.layout;
-                    const layoutListItems = document.querySelectorAll('#layoutList li');
-                    layoutListItems.forEach(item => {
-                        if (item.textContent === currentLayout) {
-                            item.classList.add('selected');
-                        }
-                    });
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        function openModal(layout, li) {
-            previousLayout = document.querySelector('#layoutList li.selected')?.textContent;
-            previousLayoutElement = document.querySelector('#layoutList li.selected');
-            setLayout(layout, li);
-            document.getElementById('testInput').value = ''; // Esvaziar o campo de texto
-            document.getElementById('modal').style.display = 'block';
-        }
-
-        function closeModal() {
-            if (previousLayout && previousLayoutElement) {
-                setLayout(previousLayout, previousLayoutElement);
-            }
-            document.getElementById('modal').style.display = 'none';
-            document.getElementById('testInput').value = ''; // Esvaziar o campo de texto
-        }
-
-        function applyLayout() {
-            previousLayout = null;
-            previousLayoutElement = null;
-            document.getElementById('modal').style.display = 'none';
-            document.getElementById('testInput').value = ''; // Esvaziar o campo de texto
-        }
-
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('modal')) {
-                closeModal();
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
 

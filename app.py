@@ -59,6 +59,25 @@ def current_keyboard_layout():
             return jsonify({'layout': current_layout})
     return jsonify({'layout': 'unknown'})
 
+@app.route('/current_volume')
+def current_volume():
+    try:
+        result = subprocess.run(['amixer', 'get', 'Master'], capture_output=True, text=True)
+        volume_line = None
+        for line in result.stdout.splitlines():
+            print("Processing line:", line)  # Adiciona log para debug
+            if 'Front Left:' in line:
+                volume_line = line
+                break
+
+        if volume_line:
+            volume = volume_line.split('[')[1].split('%')[0]
+            return jsonify({'volume': volume})
+        else:
+            return jsonify({'volume': 'error', 'error': 'Volume info not found'})
+    except Exception as e:
+        return jsonify({'volume': 'error', 'error': str(e)})
+
 if __name__ == '__main__':
     app.run(debug=True)
 
