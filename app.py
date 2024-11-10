@@ -7,35 +7,71 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
+@app.route('/get_packages')
+def get_packages():
+    try:
+        packages_output = subprocess.run(['rpm', '-qa'], capture_output=True, text=True).stdout.strip().split('\n')
+        return jsonify({"packages": packages_output})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 @app.route('/set_volume')
 def set_volume():
     level = request.args.get('level', default=50, type=int)
     subprocess.run(['amixer', 'sset', 'Master', f'{level}%'])
     return jsonify(success=True)
 
+@app.route('/current_volume')
+def current_volume():
+    try:
+        result = subprocess.run(['amixer', 'get', 'Master'], capture_output=True, text=True)
+        volume_line = None
+        for line in result.stdout.splitlines():
+            print("Processing line:", line)  # Adiciona log para debug
+            if 'Front Left:' in line:
+                volume_line = line
+                break
+
+        if volume_line:
+            volume = volume_line.split('[')[1].split('%')[0]
+            return jsonify({'volume': volume})
+        else:
+            return jsonify({'volume': 'error', 'error': 'Volume info not found'})
+    except Exception as e:
+        return jsonify({'volume': 'error', 'error': str(e)})
+
 @app.route('/network_info')
 def network_info():
-    local_ip = subprocess.run(['hostname', '-I'], capture_output=True, text=True).stdout.strip()
-    public_ip = subprocess.run(['curl', 'ifconfig.me'], capture_output=True, text=True).stdout.strip()
-    dns_servers = subprocess.run(['nmcli', 'dev', 'show'], capture_output=True, text=True).stdout.splitlines()
-    gateway = subprocess.run(['ip', 'route'], capture_output=True, text=True).stdout.splitlines()[0].split()[2]
+    try:
+        device_show_output = subprocess.run(['nmcli', 'device', 'show'], capture_output=True, text=True).stdout.strip().split('\n\n')
+        
+        network_data = []
+        for device in device_show_output:
+            iface_data = {}
+            lines = device.split('\n')
+            for line in lines:
+                if 'GENERAL.DEVICE:' in line:
+                    iface_data['interface'] = line.split(':')[1].strip()
+                elif 'GENERAL.TYPE:' in line:
+                    iface_data['type'] = line.split(':')[1].strip()
+                elif 'IP4.ADDRESS[1]:' in line:
+                    iface_data['ip_lan'] = line.split(':')[1].strip().split('/')[0]
+                elif 'IP4.GATEWAY:' in line:
+                    iface_data['gateway'] = line.split(':')[1].strip()
+                elif 'IP4.DNS[1]:' in line:
+                    iface_data['dns1'] = line.split(':')[1].strip()
+                elif 'IP4.DNS[2]:' in line:
+                    iface_data['dns2'] = line.split(':')[1].strip()
+            if iface_data:
+                network_data.append(iface_data)
 
-    dns_list = [line.split()[1] for line in dns_servers if 'IP4.DNS' in line]
-    
-    return jsonify({
-        'localIP': local_ip,
-        'publicIP': public_ip,
-        'dnsServers': dns_list,
-        'gateway': gateway
-    })
+        public_ip = subprocess.run(['curl', 'ifconfig.me'], capture_output=True, text=True).stdout.strip()
+        for iface in network_data:
+            iface['ip_wan'] = public_ip
 
-@app.route('/get_packages')
-def get_packages():
-    cmd = 'rpm -qa | sort'
-    result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
-    
-    packages = result.stdout.splitlines()
-    return jsonify({'packages': packages})
+        return jsonify(network_data)
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 @app.route('/keyboard_layouts')
 def keyboard_layouts():
@@ -58,25 +94,6 @@ def current_keyboard_layout():
             current_layout = line.split(':')[1].strip()
             return jsonify({'layout': current_layout})
     return jsonify({'layout': 'unknown'})
-
-@app.route('/current_volume')
-def current_volume():
-    try:
-        result = subprocess.run(['amixer', 'get', 'Master'], capture_output=True, text=True)
-        volume_line = None
-        for line in result.stdout.splitlines():
-            print("Processing line:", line)  # Adiciona log para debug
-            if 'Front Left:' in line:
-                volume_line = line
-                break
-
-        if volume_line:
-            volume = volume_line.split('[')[1].split('%')[0]
-            return jsonify({'volume': volume})
-        else:
-            return jsonify({'volume': 'error', 'error': 'Volume info not found'})
-    except Exception as e:
-        return jsonify({'volume': 'error', 'error': str(e)})
 
 if __name__ == '__main__':
     app.run(debug=True)
