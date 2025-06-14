@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações do BrowserOS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="menu">
+        <h1>Configurações do BrowserOS</h1>
+        <button onclick="showContent('apps')">Apps</button>
+        <button onclick="showContent('audio')">Audio</button>
+        <button onclick="showContent('network')">Redes</button>
+        <button onclick="showContent('keyboard')">Teclado</button>
+    </div>
+    <div class="content">
+         <div id="apps">
+             <h2>Apps
+             <button onclick="fetchPackages()">Todos</button><button onclick="fetchUpgradePackages()">Atualizaveis</button></h2>
+             <ul id="packageList"></ul>
+        </div>
+        <div id="audio">
+            <h2>Audio</h2>
+            <label for="volumeSlider">Volume: <span id="volumeLabel">50%</span></label>
+            <input type="range" id="volumeSlider" min="0" max="100" value="" onchange="setVolume(this.value)">
+        </div>
+        <div id="network">
+            <h2>Redes</h2>
+        </div>
+        <div id="keyboard">
+            <h2>Teclado</h2>
+            <ul id="layoutList"></ul>
+        </div>
+    </div>
+    
+    <!-- Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <p>Teste o layout de teclado selecionado</p>
+            <label for="testInput">Teste de Entrada</label>
+            <input type="text" id="testInput" title="Test Input" placeholder="Digite aqui para testar">
+            <button class="cancel" onclick="closeModal()">Cancelar</button>
+            <button class="apply" onclick="applyLayout()">Aplicar</button>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>
+
